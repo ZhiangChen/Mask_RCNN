@@ -202,6 +202,9 @@ class Config(object):
 
     # Gradient norm clipping
     GRADIENT_CLIP_NORM = 5.0
+    
+    IMAGE_CHANNEL = 3
+    
 
     def __init__(self):
         """Set values of computed attributes."""
@@ -210,9 +213,11 @@ class Config(object):
 
         # Input image size
         if self.IMAGE_RESIZE_MODE == "crop":
-            self.IMAGE_SHAPE = np.array([self.IMAGE_MIN_DIM, self.IMAGE_MIN_DIM, 3])
+            self.IMAGE_SHAPE = np.array([self.IMAGE_MIN_DIM, self.IMAGE_MIN_DIM, self.IMAGE_CHANNEL])
         else:
-            self.IMAGE_SHAPE = np.array([self.IMAGE_MAX_DIM, self.IMAGE_MAX_DIM, 3])
+            self.IMAGE_SHAPE = np.array([self.IMAGE_MAX_DIM, self.IMAGE_MAX_DIM, self.IMAGE_CHANNEL])
+            
+         
 
         # Image meta data length
         # See compose_image_meta() for details
