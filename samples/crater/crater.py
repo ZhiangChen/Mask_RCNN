@@ -11,7 +11,9 @@ import numpy as np
 import skimage.draw
 import pickle
 import argparse
+import matplotlib.pyplot as plt
 
+from mrcnn import visualize
 from mrcnn.config import Config
 from mrcnn import model as modellib, utils
 
@@ -30,20 +32,19 @@ DEFAULT_LOGS_DIR = os.path.join(ROOT_DIR, "logs")
 ############################################################
 class CraterConfig(Config):
     NAME = "crater"
-    GPU_COUNT = 2
+    GPU_COUNT = 1 # cannot create model when setting gpu count as 2
     
-    IMAGES_PER_GPU = 2
+    IMAGES_PER_GPU = 1
     NUM_CLASSES = 1 + 1  # Background + crater
     IMAGE_MIN_DIM = 256
     IMAGE_MAX_DIM = 256
     
     RPN_ANCHOR_SCALES = (8, 16, 32, 64, 128)
-    IMAGE_CHANNEL = 1 # greyscale 
+    # IMAGE_CHANNEL = 1 # wrong, the input will be automatically converted to 3 channels (if greyscale, rgb will be repeated)
     
     STEPS_PER_EPOCH = 100
     DETECTION_MIN_CONFIDENCE = 0.9
     
-    IMAGE_CHANNEL = 1
     
     MAX_GT_INSTANCES = 500
     
@@ -65,6 +66,11 @@ class CraterDataset(utils.Dataset):
         annotation_path = os.path.join(dataset_dir, 'annotations.pickle')
         assert os.path.isfile(annotation_path)
         
+        with open(annotation_path, "rb") as f:
+            annotations = pickle.load(f, encoding='latin1')
+        del(f)
+        
+        print('loading ' + subsubset)
         for i in range(50):
             image_path = os.path.join(dataset_dir, "img_{i:0{zp}d}.jpg".format(i=i, zp=2))
             #print(image_path)
@@ -72,6 +78,10 @@ class CraterDataset(utils.Dataset):
             image_id = int(subsubset)*50 + i
             image = skimage.io.imread(image_path)
             height, width = image.shape[:2]
+            index = "{k:0{zp}d}".format(k=i, zp=2)
+            mask = annotations[index]['data']
+            mask = np.swapaxes(mask, 0, 1)
+            mask = np.swapaxes(mask, 1, 2)
             
             self.add_image(
                 "lunar_crater",
@@ -80,33 +90,29 @@ class CraterDataset(utils.Dataset):
                 width=width, 
                 height=height,
                 annotation_path=annotation_path,
-                annotation = i)
-            
+                annotation = mask)
+        
+    
     def load_mask(self, image_id):
         info = self.image_info[image_id]
         if info["source"] != "lunar_crater":
             return super(self.__class__, self).load_mask(image_id)
         
-        annotation_path = info["annotation_path"]
-        annotation = info["annotation"]
-        
-        if str(image_id) in self.masks:
-            print('loaded')
-            mask = self.masks[str(image_id)]
-        else:
-            print('loading')
-            with open(annotation_path, "rb") as f:
-                annotations = pickle.load(f, encoding='latin1')
-            del(f)
-            start = int(image_id/50)
-            for i in range(start*50, start*50+50):
-                index = "{k:0{zp}d}".format(k=i%50, zp=2)
-                self.masks[str(i)] = annotations[index]['data']
-            del(annotations)
-        # to-do: format masks, return masks, class_ids (array)
+        mask = info["annotation"]
+        return mask.astype(np.bool), np.ones([mask.shape[-1]], dtype=np.int32)
 
     def image_reference(self, image_id):
-        pass
+        info = self.image_info[image_id]
+        if info["source"] == "lunar_crater":
+            return info["path"]
+        else:
+            super(self.__class__, self).image_reference(image_id)
+            
+    def display_mask(self, image_id):
+        masks, ids = self.load_mask(image_id)
+        mask = mask.max(2)
+        plt.imshow(mask)
+        plt.show()
     
 
 ############################################################
@@ -119,7 +125,7 @@ if __name__ == '__main__':
     dataset = CraterDataset()
     dataset.load_crater('../../dataset/lunar_craters', 'train', '0')
     dataset.load_crater('../../dataset/lunar_craters', 'train', '1')
-    dataset.load_crater('../../dataset/lunar_craters', 'train', '2')
-    dataset.load_crater('../../dataset/lunar_craters', 'train', '3')
-    dataset.load_mask(145)
-    dataset.load_mask(144)
+    #dataset.load_crater('../../dataset/lunar_craters', 'train', '2')
+    #dataset.load_crater('../../dataset/lunar_craters', 'train', '3')
+    a,b = dataset.load_mask(65)
+    
