@@ -8,6 +8,7 @@ test/
 coco_dataset/
 pycocotools/
 
+**.pickle
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
