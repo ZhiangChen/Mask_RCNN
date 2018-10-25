@@ -24,6 +24,14 @@ import keras.layers as KL
 import keras.engine as KE
 import keras.models as KM
 
+"""
+Zhiang Chen, Oct 2018
+"""
+config = tf.ConfigProto()
+config.gpu_options.allow_growth=True
+sess = tf.Session(config=config)
+K.set_session(sess)
+
 from mrcnn import utils
 
 # Requires TensorFlow 1.3+ and Keras 2.0.8+.
