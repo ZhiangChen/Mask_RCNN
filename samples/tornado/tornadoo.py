@@ -39,7 +39,7 @@ class TornadoConfig(Config):
     IMAGE_MIN_DIM = 800
     IMAGE_MAX_DIM = 1024
     
-    RPN_ANCHOR_SCALES = (32, 64, 128, 256, 512)
+    RPN_ANCHOR_SCALES = (16, 64, 128, 256, 512)
     # IMAGE_CHANNEL = 1 # wrong, the input will be automatically converted to 3 channels (if greyscale, rgb will be repeated)
     
     STEPS_PER_EPOCH = 100
@@ -68,15 +68,15 @@ class TornadoDataset(utils.Dataset):
         
         image_id = 0
         for file in files:
-            if '.png' in file:
+            if '.jpg' in file:
                 image_path = os.path.join(dataset_dir, file)
                 assert os.path.isfile(image_path)
                 
                 annotation_path = os.path.join(dataset_dir, file.split('.')[0]+'.npy')
                 assert os.path.isfile(annotation_path)
                 
-                image = skimage.io.imread(image_path)
-                height, width = image.shape[:2]
+                #image = skimage.io.imread(image_path)
+                height, width = 800, 800
                 
                 self.add_image(
                     "tornado",
