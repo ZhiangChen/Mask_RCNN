@@ -1,7 +1,7 @@
 """
-classes for lunar rocks dataset
+classes for rocks dataset
 Zhiang Chen
-Oct 24, 2018
+Dec 5, 2018
 zch@asu.edu
 """
 
@@ -46,7 +46,7 @@ class RocksConfig(Config):
     DETECTION_MIN_CONFIDENCE = 0.9
     
     
-    MAX_GT_INSTANCES = 100
+    MAX_GT_INSTANCES = 150
     
     DETECTION_MAX_INSTANCES = 200
     
@@ -60,29 +60,23 @@ class RocksConfig(Config):
 class RocksDataset(utils.Dataset):
     def load_rocks(self, datadir, subset):
         self.add_class("rocks", 1, "rocks")
+        
         assert subset in ["train", "val"]
         dataset_dir = os.path.join(datadir, subset)
         
-        annotation_path = os.path.join(dataset_dir, 'annotations.pickle')
-        assert os.path.isfile(annotation_path)
-        with open(annotation_path, "rb") as f:
-            annotations = pickle.load(f, encoding='latin1')
-        del(f)
-        
-        
         files = os.listdir(dataset_dir)
-        files.remove('annotations.pickle')
+        
         image_id = 0
         for file in files:
-            if 'label' not in file:
+            if '.png' in file:
                 image_path = os.path.join(dataset_dir, file)
                 assert os.path.isfile(image_path)
-                image = skimage.io.imread(image_path)
-                height, width = image.shape[:2]
-                mask = annotations[file.split('.')[0]+'.xml']
                 
-                mask = np.swapaxes(mask, 0, 1)
-                mask = np.swapaxes(mask, 1, 2)
+                annotation_path = os.path.join(dataset_dir, file.split('.')[0]+'.npy')
+                assert os.path.isfile(annotation_path)
+                
+                #image = skimage.io.imread(image_path)
+                height, width = 400, 400
                 
                 self.add_image(
                     "rocks",
@@ -90,19 +84,29 @@ class RocksDataset(utils.Dataset):
                     path=image_path,
                     width=width, 
                     height=height,
-                    annotation_path=annotation_path,
-                    annotation = mask)
+                    annotation_path=annotation_path)
                 
                 image_id += 1
                 
-    
     def load_mask(self, image_id):
         info = self.image_info[image_id]
         if info["source"] != "rocks":
             return super(self.__class__, self).load_mask(image_id)
         
-        mask = info["annotation"]
-        return mask.astype(np.bool), np.ones([mask.shape[-1]], dtype=np.int32)
+        mask = np.load(info["annotation_path"])
+        
+        if len(mask.shape) == 2:
+            h,w = mask.shape
+            mask_ = mask.reshape((h,w,1)).astype(np.bool)
+            return mask_, np.zeros(1).astype('int32')
+        
+        else:
+            h,w,c = mask.shape
+            mask_ = np.zeros(mask.shape, dtype='uint8')
+            mask_ = np.logical_or(mask, mask_)
+            classes = np.ones([mask.shape[-1]], dtype=np.int32)        
+            return mask_, classes
+        
 
     def image_reference(self, image_id):
         info = self.image_info[image_id]
@@ -126,7 +130,7 @@ if __name__ == '__main__':
     config = RocksConfig()
     config.display()
     dataset = RocksDataset()
-    dataset.load_rocks('../../dataset/rocks_mask', 'train')
+    dataset.load_rocks('../../dataset/rocks', 'train')
     m, cls = dataset.load_mask(0)
     print(m[0,:,:].max())
     print(cls)
