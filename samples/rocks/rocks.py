@@ -39,18 +39,28 @@ class RocksConfig(Config):
     IMAGE_MIN_DIM = 384
     IMAGE_MAX_DIM = 384
     
-    RPN_ANCHOR_SCALES = (16, 32, 64, 128, 256)
+    RPN_ANCHOR_SCALES = (8, 16, 32, 64, 128)
     # IMAGE_CHANNEL = 1 # wrong, the input will be automatically converted to 3 channels (if greyscale, rgb will be repeated)
     
     STEPS_PER_EPOCH = 100
     DETECTION_MIN_CONFIDENCE = 0.9
     
     
-    MAX_GT_INSTANCES = 150
+    MAX_GT_INSTANCES = 512
     
-    DETECTION_MAX_INSTANCES = 200
+    DETECTION_MAX_INSTANCES = 512
     
     TRAIN_ROIS_PER_IMAGE = 500
+    ROI_POSITIVE_RATIO = 0.5
+    
+    USE_MINI_MASK = False
+    LOSS_WEIGHTS = {
+        "rpn_class_loss": 0.5,
+        "rpn_bbox_loss": 1.,
+        "mrcnn_class_loss": 0.5,
+        "mrcnn_bbox_loss": 1.,
+        "mrcnn_mask_loss": 1.
+    }
     
 
 ############################################################
@@ -61,23 +71,32 @@ class RocksDataset(utils.Dataset):
     def load_rocks(self, datadir, subset):
         self.add_class("rocks", 1, "rocks")
         
-        assert subset in ["train", "val"]
+        assert subset in ["train", "val", "infer"]
         dataset_dir = os.path.join(datadir, subset)
+        files = [x for x in os.listdir(dataset_dir) if x.endswith(".jpg")]
         
-        files = os.listdir(dataset_dir)
-        
+        if subset == "infer":
+            fake_annotation = np.zeros((400,400))
+            np.save(dataset_dir+"/fake_annotation.npy", fake_annotation)
+            
+
         image_id = 0
         for file in files:
-            if '.png' in file:
+            if '.jpg' in file:
                 image_path = os.path.join(dataset_dir, file)
                 assert os.path.isfile(image_path)
                 
-                annotation_path = os.path.join(dataset_dir, file.split('.')[0]+'.npy')
+                if subset in ["train","val"]:
+                    annotation_path = os.path.join(dataset_dir, file.split('.')[0]+'.npy')
+                    
+                else:
+                    annotation_path = os.path.join(dataset_dir, "fake_annotation.npy")
+                    
                 assert os.path.isfile(annotation_path)
-                
+
                 #image = skimage.io.imread(image_path)
                 height, width = 400, 400
-                
+
                 self.add_image(
                     "rocks",
                     image_id=image_id,
@@ -85,8 +104,9 @@ class RocksDataset(utils.Dataset):
                     width=width, 
                     height=height,
                     annotation_path=annotation_path)
-                
+
                 image_id += 1
+
                 
     def load_mask(self, image_id):
         info = self.image_info[image_id]
